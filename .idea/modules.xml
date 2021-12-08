@@ -2,8 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/key-finder.iml" filepath="$PROJECT_DIR$/.idea/modules/key-finder.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/key-finder-build.iml" filepath="$PROJECT_DIR$/.idea/modules/key-finder-build.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/keys-collector.iml" filepath="$PROJECT_DIR$/.idea/modules/keys-collector.iml" />
     </modules>
   </component>
 </project>

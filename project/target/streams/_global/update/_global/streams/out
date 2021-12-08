@@ -1,3 +1,3 @@
-[debug] not up to date. inChanged = false, force = false
-[debug] Updating ProjectRef(uri("file:/D:/_UCU/Functional%20Progaramming/FinalTaskTest/project/"), "finaltasktest-build")...
-[debug] Done updating ProjectRef(uri("file:/D:/_UCU/Functional%20Progaramming/FinalTaskTest/project/"), "finaltasktest-build")
+[debug] not up to date. inChanged = true, force = false
+[debug] Updating ProjectRef(uri("file:/D:/_UCU/Functional%20Progaramming/FinalTask/project/"), "finaltask-build")...
+[debug] Done updating ProjectRef(uri("file:/D:/_UCU/Functional%20Progaramming/FinalTask/project/"), "finaltask-build")
