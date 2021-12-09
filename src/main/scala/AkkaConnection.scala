@@ -5,59 +5,53 @@ import akka.http.scaladsl.model.Uri.Query
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers._
 import akka.http.scaladsl.unmarshalling.Unmarshal
-
-import java.time.Instant
 import akka.stream.scaladsl.Source
 import play.api.libs.json._
 
-import scala.concurrent.{Future, duration}
-import scala.concurrent.duration.FiniteDuration
-import scala.util.{Failure, Success}
+import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 object AkkaConnection extends App {
 
-  implicit val system = ActorSystem(Behaviors.empty, "SingleRequest")
+  implicit val system: ActorSystem[Nothing] = {
+    ActorSystem(Behaviors.empty, "SingleRequest")
+  }
   // needed for the future flatMap/onComplete in the end
-  implicit val executionContext = system.executionContext
-
-  def resolveEvent(): Future[Seq[Any]] = Future {
-    Seq()
+  implicit val executionContext: ExecutionContextExecutor = {
+    system.executionContext
   }
 
-  Source.tick(FiniteDuration(0, duration.SECONDS), FiniteDuration(5, duration.SECONDS), 1)
-  .mapAsync(1)(_ => resolveEvent())
-    .statefulMapConcat(() => {
-      var lastEventTimestamp: Instant = Instant.ofEpochMilli(0)
-      {
-        (sequence) =>
-          val filtered = sequence.filter(i => isAfter(Instant))
-          if (filtered.nonEmpty){
-            lastEventTimestamp = filtered(0)
-          }
-          filtered
+  Source.tick(0.second, 5.second, 1).mapAsync(1)(_ => callHttp().map(value => (value \ "items").validate[Seq[JsValue]] match {
+    case JsSuccess(items, _) =>
+      items foreach {
+        items =>
+          println((items \ "name").as[String])
+          println((items \ "path").as[String])
+          println((items \ "sha").as[String])
+          println((items \ "url").as[String])
+          println((items \ "git_url").as[String])
+          println((items \ "html_url").as[String])
       }
-    }
+    case error: JsError =>
+      println(error)
+  }
+  )).run()
 
+  val authorization = headers.Authorization(BasicHttpCredentials("token", "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"))
+
+  def callHttp() = {
+    Http().singleRequest(HttpRequest(
+      method = HttpMethods.GET,
+      uri = Uri("https://api.github.com/search/code") withQuery ("q", "addClass") +: ("in", "file") +: Query.Empty,
+      headers = List(authorization)
     )
-
-
-  val authorization = headers.Authorization(BasicHttpCredentials("token", "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"))
-  //  val result: Future[HttpResponse] = Http().singleRequest(HttpRequest(
-  val result = Http().singleRequest(HttpRequest(
-    method = HttpMethods.GET,
-    uri = Uri("https://api.github.com/search/code") withQuery ("q", "addClass") +: ("in", "file") +: Query.Empty,
-    headers = List(authorization)
-  )
     ).flatMap { res =>
       Unmarshal(res).to[String].map { data =>
         Json.parse(data)
       }
     }
-
-  result.onComplete {
-    case Success(js) =>
-      println(s"Success: $js")
-    case Failure(e) =>
-      println(s"Failure: $e")
   }
+
+
+  case class passApiResult(name: String, path: String, sha: String, url: String, git_url: String, html_url: String)
 }
