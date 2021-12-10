@@ -6,11 +6,12 @@ import akka.http.scaladsl.model.Uri.Query
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers._
 import akka.http.scaladsl.unmarshalling.Unmarshal
+import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import play.api.libs.json._
 
 import scala.util.{Failure, Success}
-import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 object ApiConnection extends App {
@@ -26,33 +27,49 @@ object ApiConnection extends App {
 
   val SEARCH: Uri = Uri("https://api.github.com/search/code") withQuery ("q", "AWSAccessKeyId") +: ("in", "file") +: Query.Empty
 
-  Source.tick(0.second, 15.seconds, 1).mapAsync(1)(_ =>
-    getHttpRequest(SEARCH).map { data => Json.parse(data) }
-      .map(value => (value \ "items")
-        .validate[Seq[JsValue]] match {
-        case JsSuccess(items, _) =>
-          items foreach {
-            items => {
-              //Get Repo
-              getHttpRequest(Uri(s"https://api.github.com/repos/" +
-                s"${(items \ "repository" \ "owner" \ "login").as[String]}/" +
-                s"${(items \ "repository" \ "name").as[String]}/contents/" +
-                s"${(items \ "path").as[String]}".replace(" ", "%20"))).map { data => Json.parse(data) }
-                .onComplete {
-                  case Success(repo) =>
-                    //Get Raw
-                    getHttpRequest(Uri(s"${(repo \ "download_url").as[String]}")).map { raw =>
-                      println(raw.slice(raw.indexOfSlice("AWSAccessKeyId"), raw.indexOfSlice("AWSAccessKeyId") + 100))
+  apply("")
+
+  def apply(value: String) = {
+
+    Source.fromMaterializer((mat, a) => {
+      println(s"Here $mat")
+      implicit val context: ExecutionContext.parasitic.type = ExecutionContext.parasitic
+      val (queue, source) = Source.queue[String](256, OverflowStrategy.dropHead).preMaterialize()(mat)
+
+      Source.tick(0.second, 15.seconds, 1).mapAsync(1)(_ =>
+        getHttpRequest(SEARCH).map { data => Json.parse(data) }
+          .map(value => (value \ "items")
+            .validate[Seq[JsValue]] match {
+            case JsSuccess(items, _) =>
+              items foreach {
+                items => {
+                  //Get Repo
+                  getHttpRequest(Uri(s"https://api.github.com/repos/" +
+                    s"${(items \ "repository" \ "owner" \ "login").as[String]}/" +
+                    s"${(items \ "repository" \ "name").as[String]}/contents/" +
+                    s"${(items \ "path").as[String]}".replace(" ", "%20"))).map { data => Json.parse(data) }
+                    .onComplete {
+                      case Success(repo) =>
+                        //Get Raw
+                        getHttpRequest(Uri(s"${(repo \ "download_url").as[String]}")).map { raw =>
+                          println(raw.slice(raw.indexOfSlice("AWSAccessKeyId"), raw.indexOfSlice("AWSAccessKeyId") + 100))
+                          queue.offer(raw.slice(raw.indexOfSlice("AWSAccessKeyId"), raw.indexOfSlice("AWSAccessKeyId") + 100))
+                        }
+                      case Failure(e) =>
+                        println(s"Failure: $e")
                     }
-                  case Failure(e) =>
-                    println(s"Failure: $e")
                 }
-            }
+              }
+            case error: JsError =>
+              println(error)
           }
-        case error: JsError =>
-          println(error)
-      }
-      )).run()
+          )).run()
+
+      source
+
+    }).async
+
+  }
 
   def getHttpRequest(uri: Uri) = {
     Http().singleRequest(HttpRequest(
