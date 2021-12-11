@@ -1,7 +1,7 @@
 
 //package edu.fp.examples.app
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, Cancellable}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.ws.TextMessage
 import akka.http.scaladsl.server.Directives.{concat, get, getFromResource, handleWebSocketMessages, path}
@@ -24,10 +24,10 @@ object Application extends App {
   implicit val system: ActorSystem = ActorSystem()
   implicit val executionContext: ExecutionContextExecutor = system.dispatcher
 
-  val mapper: ObjectMapper = new ObjectMapper().registerModule(DefaultScalaModule)
+//  val mapper: ObjectMapper = new ObjectMapper().registerModule(DefaultScalaModule)
 //
 //  private val graphSource = CryptoCompareSource(Seq("5~CCCAGG~BTC~USD", "0~Coinbase~BTC~USD", "0~Cexio~BTC~USD"))
-private val graphSource = ApiConnection("")
+//private val graphSource: Source[String, Cancellable] = ApiConnection()
 //    .via(GraphDSL.create() { implicit graphBuilder =>
 //      val IN = graphBuilder.add(Broadcast[Map[String, Any]](2))
 //      val PRICE = graphBuilder.add(Broadcast[Message[Float]](2))
@@ -48,31 +48,31 @@ private val graphSource = ApiConnection("")
     Http().newServerAt("localhost", 8080).connectionSource()
 
 
-  val bindingFuture =
-    serverSource.runForeach { connection => // foreach materializes the source
-      println("Accepted new connection from " + connection.remoteAddress)
-      // ... and then actually handle the connection
-      connection.handleWith(
-        get {
-          concat(
-            path("") {
-              getFromResource("./ui/index.html")
-            },
-            path("main.js") {
-              getFromResource("./ui/main.js")
-            },
-            path("stream") {
-              handleWebSocketMessages(Sink.ignore, graphSource.map(mapper.writeValueAsString(_)).map(TextMessage(_)))
-//              handleWebSocketMessages(
-//                Flow.apply[Message]
-//                  .map(m => m.asTextMessage)
-//                  .map(tm => s"Echo: ${tm.getStrictText}")
-//                  .map(TextMessage(_))
-//              )
-            }
-          )
-        }
-      )
-    }
+         val bindingFuture =
+           serverSource.runForeach { connection => // foreach materializes the source
+             println("Accepted new connection from " + connection.remoteAddress)
+             // ... and then actually handle the connection
+             connection.handleWith(
+               get {
+                 concat(
+                   path("") {
+                     getFromResource("./ui/index.html")
+                   },
+                   path("main.js") {
+                     getFromResource("./ui/main.js")
+                   },
+                   path("stream") {
+//                     handleWebSocketMessages(Flow.fromSinkAndSource(Sink.ignore, graphSource.map(TextMessage(_))))
+                     handleWebSocketMessages(
+                       Flow.apply[Message]
+                         .map(m => m.asTextMessage)
+                         .map(tm => s"Echo: ${tm.getStrictText}")
+                         .map(TextMessage(_))
+                     )
+                   }
+                 )
+               }
+             )
+           }
 
 }
