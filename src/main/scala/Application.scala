@@ -9,6 +9,7 @@ import akka.http.scaladsl.server.PathMatcher
 import akka.stream.FlowShape
 import akka.stream.scaladsl.GraphDSL.Implicits.fanOut2flow
 import akka.stream.scaladsl.{Broadcast, BroadcastHub, Flow, GraphDSL, Keep, Merge, Sink, Source}
+import com.fasterxml.jackson.databind.ObjectMapper
 //import com.fasterxml.jackson.databind.ObjectMapper
 //import com.fasterxml.jackson.module.scala.DefaultScalaModule
 //import edu.fp.examples.app.dto.Message
@@ -23,9 +24,10 @@ object Application extends App {
   implicit val system: ActorSystem = ActorSystem()
   implicit val executionContext: ExecutionContextExecutor = system.dispatcher
 
-//  val mapper: ObjectMapper = new ObjectMapper().registerModule(DefaultScalaModule)
+  val mapper: ObjectMapper = new ObjectMapper().registerModule(DefaultScalaModule)
 //
 //  private val graphSource = CryptoCompareSource(Seq("5~CCCAGG~BTC~USD", "0~Coinbase~BTC~USD", "0~Cexio~BTC~USD"))
+private val graphSource = ApiConnection("")
 //    .via(GraphDSL.create() { implicit graphBuilder =>
 //      val IN = graphBuilder.add(Broadcast[Map[String, Any]](2))
 //      val PRICE = graphBuilder.add(Broadcast[Message[Float]](2))
@@ -60,13 +62,13 @@ object Application extends App {
               getFromResource("./ui/main.js")
             },
             path("stream") {
-//              handleWebSocketMessages(Flow.fromSinkAndSource(Sink.ignore, graphSource.map(mapper.writeValueAsString(_)).map(TextMessage(_))))
-              handleWebSocketMessages(
-                Flow.apply[Message]
-                  .map(m => m.asTextMessage)
-                  .map(tm => s"Echo: ${tm.getStrictText}")
-                  .map(TextMessage(_))
-              )
+              handleWebSocketMessages(Sink.ignore, graphSource.map(mapper.writeValueAsString(_)).map(TextMessage(_)))
+//              handleWebSocketMessages(
+//                Flow.apply[Message]
+//                  .map(m => m.asTextMessage)
+//                  .map(tm => s"Echo: ${tm.getStrictText}")
+//                  .map(TextMessage(_))
+//              )
             }
           )
         }
