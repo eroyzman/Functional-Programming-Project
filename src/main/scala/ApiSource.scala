@@ -7,8 +7,9 @@ import akka.http.scaladsl.model.headers._
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Sink, Source}
-import play.api.libs.json.{JsSuccess, JsValue, Json}
+import play.api.libs.json.{JsError, JsResult, JsSuccess, JsValue, Json}
 
+import scala.concurrent.Future
 import scala.util.{Failure, Success}
 //import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import akka.actor.{ActorSystem, Cancellable}
@@ -16,7 +17,7 @@ import akka.actor.{ActorSystem, Cancellable}
 import scala.concurrent.duration._
 
 object ApiSource {
-  val authorization = headers.Authorization(BasicHttpCredentials("token", "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"))
+  val authorization = headers.Authorization(BasicHttpCredentials("token", "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"))
   val SEARCH: Uri = Uri("https://api.github.com/search/code") withQuery ("q", "AWSAccessKeyId") +: ("in", "file") +: Query.Empty
   val delayBased: Source[String, Cancellable] = Source.tick(initialDelay = 1.second,
     interval = 15.seconds,
@@ -45,27 +46,32 @@ object ApiSource {
         }
     )
     .mapConcat(items => items)
-    .wireTap(data => println(s" After map Async${data}"))
+    .wireTap(data => println(s" After map Async: \n ${data}"))
     .mapAsync(1)(jsvalue => {
       //Get Repo
       getHttpRequest(Uri(s"https://api.github.com/repos/" +
         s"${(jsvalue \ "repository" \ "owner" \ "login").as[String]}/" +
         s"${(jsvalue \ "repository" \ "name").as[String]}/contents/" +
-        s"${(jsvalue \ "path").as[String]}".replace(" ", "%20"))
+        (jsvalue \ "path").as[String].replace(" ", "%20"))
       )
         .map { data => Json.parse(data) }
         .flatMap { repo =>
-          println(s" Repo - ${repo}")
+//          println(s" Repo - ${repo \ "html_url"}")
           //Get Raw
-          getHttpRequest(Uri(s"${(repo \ "download_url").as[String]}"))
-//            .onComplete {
-//              case Success(raw) => raw.slice(raw.indexOfSlice("AWSAccessKeyId"), raw.indexOfSlice("AWSAccessKeyId") + 100)
-//              case Failure(e) => println(s"Failure: $e")
-//            }
-            .map { raw =>
-              //              println(s"Here is raw data: ${raw}")
-              raw.slice(raw.indexOfSlice("AWSAccessKeyId"), raw.indexOfSlice("AWSAccessKeyId") + 100)
-            }
+          val fileUrl: JsResult[String] = (repo \ "download_url").validate[String]
+
+          fileUrl match {
+            case s: JsSuccess[String] => getHttpRequest(Uri(s.value))
+              //            .onComplete {
+              //              case Success(raw) => raw.slice(raw.indexOfSlice("AWSAccessKeyId"), raw.indexOfSlice("AWSAccessKeyId") + 100)
+              //              case Failure(e) => println(s"Failure: $e")
+              //            }
+              .map { raw =>
+                //              println(s"Here is raw data: ${raw}")
+                raw.slice(raw.indexOfSlice("AWSAccessKeyId"), raw.indexOfSlice("AWSAccessKeyId") + 100)
+              }
+            case e: JsError => Future {"Errors: " + JsError.toJson(e).toString()}
+          }
         }
     }).buffer(256, OverflowStrategy.backpressure).async
 
@@ -73,13 +79,13 @@ object ApiSource {
   def apply() = gitHubApiSource
 
   def getHttpRequest(uri: Uri) = {
-    println(uri)
+    println(s" Making request to uri: ${uri}")
     Http().singleRequest(HttpRequest(
       method = HttpMethods.GET,
       uri = uri,
       headers = List(authorization))).flatMap {
       response =>
-        println(response)
+        println(s" Response from the uri: ${response}")
         Unmarshal(response).to[String]
     }
   }
