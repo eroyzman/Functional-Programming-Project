@@ -15,6 +15,9 @@ libraryDependencies ++= Seq(
   "com.typesafe.play" %% "play-json" % "2.9.2",
   "com.typesafe.akka" %% "akka-stream-typed" % AkkaVersion,
   "com.typesafe.akka" %% "akka-serialization-jackson" % AkkaVersion,
-  "com.typesafe.akka" %% "akka-stream-testkit" % AkkaVersion % Test
+  "com.typesafe.akka" %% "akka-stream-testkit" % AkkaVersion % Test,
+  "org.mongodb.scala" %% "mongo-scala-driver" % "2.7.0",
+  "ch.rasc" % "bsoncodec" % "1.0.1",
+  "com.lightbend.akka" %% "akka-stream-alpakka-mongodb" % "2.0.2"
 )
 
