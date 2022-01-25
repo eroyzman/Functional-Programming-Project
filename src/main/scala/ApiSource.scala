@@ -8,17 +8,18 @@ import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Sink, Source}
 import play.api.libs.json.{JsError, JsResult, JsSuccess, JsValue, Json}
+import scala.concurrent.ExecutionContext
 import java.nio.file.Paths
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
 //import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import akka.actor.{ActorSystem, Cancellable}
 
 import scala.concurrent.duration._
 
 object ApiSource {
-  val authorization = headers.Authorization(BasicHttpCredentials("token", "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"))
+  //  implicit val context: ExecutionContext.parasitic.type = ExecutionContext.parasitic
+  val authorization = headers.Authorization(BasicHttpCredentials("token", "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"))
   val SEARCH: Uri = Uri("https://api.github.com/search/code") withQuery ("q", "AWSAccessKeyId") +: ("in", "file") +: Query.Empty
   val delayBased: Source[String, Cancellable] = Source.tick(initialDelay = 1.second,
     interval = 15.seconds,

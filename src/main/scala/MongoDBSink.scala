@@ -16,12 +16,16 @@ object MongoDBSink {
 
 
   def apply(): Sink[String, Any] = Flow[String].map(m =>
-
-    new Document()
-      .append("keyValue", m.substring(0, m.indexOf("#")))
-      .append("langType", m.substring(m.lastIndexOf("#") + 1))
+    try {
+      new Document()
+        .append("keyValue", m.substring(0, m.indexOf("#")))
+        .append("langType", m.substring(m.lastIndexOf("#") + 1))
+    } catch {
+      case e: Exception => println(e.toString)
+        new Document()
+          .append("keyValue", "broken")
+          .append("langType", "broken")
+    }
   )
     .to(MongoSink.insertOne(collection))
-
-
 }
